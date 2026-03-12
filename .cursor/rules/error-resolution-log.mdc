@@ -1,0 +1,57 @@
+---
+description: Log errors and fixes to ERROR_FIX_LOG.md when resolving issues
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# Error Resolution Logging
+
+## When to Log
+
+Log to `ERROR_FIX_LOG.md` when resolving:
+
+- **Build failures** — compilation errors, linker issues, CGO problems
+- **Runtime errors** — panics, nil pointer dereferences, goroutine leaks
+- **API errors** — Kalshi/Polymarket/OpenAI unexpected responses, schema changes, auth failures
+- **Database errors** — SQLite migration failures, constraint violations, corruption
+- **Deployment errors** — environment misconfiguration, missing dependencies
+- **Any issue taking >5 minutes to diagnose**
+
+## When NOT to Log
+
+- Simple typos or syntax errors caught immediately
+- Linter warnings resolved in <1 minute
+- Expected test failures during TDD
+- Known issues already documented in ERROR_FIX_LOG.md
+
+## Category Prefixes
+
+| Prefix | Area |
+|---|---|
+| `BUILD` | Go compilation, CGO, module resolution |
+| `KALSHI` | Kalshi API adapter issues |
+| `POLY` | Polymarket API adapter issues |
+| `OPENAI` | OpenAI embedding API issues |
+| `SQLITE` | Database schema, queries, migrations |
+| `NORM` | Normalization layer (L2) issues |
+| `EQUIV` | Equivalence detection (L3) issues |
+| `ROUTE` | Routing engine (L4) issues |
+| `CONFIG` | Viper/env configuration issues |
+| `TEST` | Test infrastructure, fixtures, mocks |
+| `CLI` | Cobra CLI command issues |
+
+## Log Format
+
+```markdown
+### [CATEGORY-NNN] Short description
+- **Date:** YYYY-MM-DD
+- **Error:** Exact error message or observed behavior
+- **Context:** What was being done when it occurred
+- **Root Cause:** Why it happened
+- **Fix:** What resolved it
+- **Prevention:** How to avoid recurrence
+```
+
+## Numbering
+
+Increment the number within each category (e.g., KALSHI-001, KALSHI-002). Check existing entries before assigning a number.

@@ -1,0 +1,68 @@
+---
+description: Enforce the locked technology stack decisions from Pre-Search
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Technology Stack Lock
+
+All technology decisions below are LOCKED. Do not introduce alternatives without explicit user approval.
+
+## Locked Decisions
+
+### Language: Go 1.22+
+- **LOCKED:** Go as the implementation language
+- **DO NOT** switch to Python, TypeScript, Rust, or Java
+- **DO NOT** introduce CGO dependencies beyond `mattn/go-sqlite3`
+- Use Go idioms: interfaces for abstraction, goroutines for concurrency, error values (not exceptions)
+
+### CLI Framework: spf13/cobra
+- **LOCKED:** Cobra for CLI command structure
+- **DO NOT** switch to `urfave/cli`, `kong`, or custom flag parsing
+- All commands: `ingest`, `normalize`, `match`, `route`, `status`, `explain`
+
+### Configuration: spf13/viper + .env
+- **LOCKED:** Viper for config management with `.env` file support
+- **DO NOT** switch to `envconfig`, `kelseyhightower/envconfig`, or custom config parsing
+- All config accessed through Viper — no direct `os.Getenv`
+
+### HTTP Client: net/http + go-resty/resty
+- **LOCKED:** resty for HTTP client with retry/backoff
+- **DO NOT** switch to `hashicorp/go-retryablehttp`, `go-resty` alternatives, or raw `net/http` for API calls
+- Retry policy: exponential backoff, max 3 attempts, ±20% jitter
+
+### Storage: SQLite via mattn/go-sqlite3
+- **LOCKED:** SQLite as the persistence layer
+- **DO NOT** switch to PostgreSQL, MySQL, MongoDB, Redis, or file-based JSON
+- Single database file; zero external infrastructure
+- CGO_ENABLED=1 required
+
+### Embeddings: OpenAI text-embedding-3-small
+- **LOCKED:** OpenAI API for embedding generation
+- **DO NOT** switch to local models (sentence-transformers, etc.), Cohere, or other embedding providers
+- Cache embeddings by NormalizedTitle hash to minimize API calls
+- Graceful degradation: Stage 1 only when OpenAI unavailable
+
+### Logging: log/slog (stdlib)
+- **LOCKED:** slog for structured logging
+- **DO NOT** switch to `zap`, `zerolog`, `logrus`, or `log`
+- JSON format by default; routing decisions are first-class log outputs
+
+### Testing: stdlib testing + stretchr/testify
+- **LOCKED:** Standard Go testing with testify for assertions
+- **DO NOT** switch to `gocheck`, `ginkgo`, or other test frameworks
+- Mock HTTP servers via `httptest.NewServer` — no live API calls in unit tests
+
+### String Matching: Custom Levenshtein + Jaccard
+- **LOCKED:** Custom implementation for Stage 1 pre-filter
+- **DO NOT** introduce heavy NLP libraries or fuzzy matching frameworks
+- Keep it simple: tokenize, compute overlap, threshold
+
+## Adding New Dependencies
+
+Before adding any new Go package:
+1. Check if stdlib or an existing dependency already covers the need
+2. Verify the package is actively maintained (commits in last 6 months)
+3. Prefer stdlib over third-party when functionality is comparable
+4. Document the rationale in the PR description
+5. Never add a dependency that duplicates existing locked choices
