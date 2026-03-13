@@ -53,6 +53,7 @@ type AdapterError struct {
 	Attempts   int
 	LastError  error
 	OccurredAt time.Time
+	RetryAfter time.Duration // from Retry-After header on 429 responses
 }
 
 func (e *AdapterError) Error() string {
