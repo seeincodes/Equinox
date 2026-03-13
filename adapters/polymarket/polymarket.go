@@ -13,6 +13,9 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// ASSUMPTION A3: Polymarket read-only endpoints remain public.
+// ASSUMPTION A8: Venue APIs will generally be available during ingest cycles.
+
 // Adapter implements adapters.VenueAdapter for the Polymarket exchange.
 type Adapter struct {
 	gammaClient *resty.Client

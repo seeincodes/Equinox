@@ -14,6 +14,10 @@ import (
 	"equinox/models"
 )
 
+// ASSUMPTION A5: text-embedding-3-small is sufficient for market title similarity.
+// ASSUMPTION A6: 48h resolution window is appropriate for temporal equivalence.
+// ASSUMPTION A7: Equivalent markets will resolve to the same outcome; divergence flagged via SETTLEMENT_DIVERGENCE.
+
 // Config holds thresholds for equivalence detection.
 type Config struct {
 	EmbeddingSimilarityHigh float64
@@ -170,7 +174,12 @@ func (e *Engine) stage2Classify(ctx context.Context, candidates []CandidatePair)
 		var matchMethod models.MatchMethod
 		flags := append([]models.MatchFlag{}, c.Flags...)
 
-		if similarity >= e.cfg.EmbeddingSimilarityHigh {
+		highThreshold := e.cfg.EmbeddingSimilarityHigh
+		if c.A.ContractType == models.ContractCategorical {
+			highThreshold = 0.95
+		}
+
+		if similarity >= highThreshold {
 			matchMethod = models.MatchHybrid
 		} else if similarity >= e.cfg.EmbeddingSimilarityLow {
 			matchMethod = models.MatchHybrid

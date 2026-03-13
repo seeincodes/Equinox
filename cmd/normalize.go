@@ -50,7 +50,14 @@ func runNormalize(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("persist canonical markets: %w", err)
 	}
 
-	fmt.Printf("Normalized %d markets (%d errors, %d persisted)\n", len(canonicals), len(errs), persisted)
+	staleCount, err := db.DetectStalePrices()
+	if err != nil {
+		slog.Warn("staleness detection failed", "error", err)
+	} else if staleCount > 0 {
+		slog.Warn("stale markets detected", "count", staleCount)
+	}
+
+	fmt.Printf("Normalized %d markets (%d errors, %d persisted, %d stale)\n", len(canonicals), len(errs), persisted, staleCount)
 	return nil
 }
 

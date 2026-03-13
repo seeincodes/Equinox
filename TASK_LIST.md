@@ -95,10 +95,10 @@
 ## Phase 2: Polish
 
 ### 2.1 Staleness Detection
-- [ ] Detect unchanged `YesPrice` across 5 consecutive ingest cycles → set `DataStalenessFlag=true`
-- [ ] Detect no new markets from a venue for > 2× poll interval → log WARN
-- [ ] Venue suspension behavior: `SINGLE_VENUE_ONLY` flag when one venue down
-- [ ] Cache-only mode: `CacheMode=true` when all venues unavailable
+- [x] Detect unchanged `YesPrice` across 5 consecutive ingest cycles → set `DataStalenessFlag=true`
+- [x] Detect no new markets from a venue for > 2× poll interval → log WARN
+- [x] Venue suspension behavior: `SINGLE_VENUE_ONLY` flag when one venue down
+- [x] Cache-only mode: `CacheMode=true` when all venues unavailable
 
 ### 2.2 Optional REST API
 - [ ] `GET /markets?venue=&status=`
@@ -107,38 +107,38 @@
 - [ ] `GET /health`
 
 ### 2.3 Edge Case Handling
-- [ ] Handle missing resolution time (waive E2, add `RESOLUTION_TIME_MISSING` flag)
-- [ ] Handle market resolving early on one venue
-- [ ] Handle `RulesHash` change → re-evaluate group; archive old
-- [ ] Multi-outcome categorical: stricter threshold 0.95
+- [x] Handle missing resolution time (waive E2, add `RESOLUTION_TIME_MISSING` flag)
+- [x] Handle market resolving early on one venue
+- [x] Handle `RulesHash` change → re-evaluate group; archive old
+- [x] Multi-outcome categorical: stricter threshold 0.95
 
 ## Phase 3: Final
 
 ### 3.1 Resilience Tests (R1–R8)
-- [ ] R1: 503 × 2 then 200 — verify successful ingest after retry
-- [ ] R2: 429 with `Retry-After: 2` — verify ≥2s wait
-- [ ] R3: 429 × 3 exhausts retries — verify 5 min polling backoff
-- [ ] R4: Response missing required field — verify T4 error, no partial normalization
-- [ ] R5: Kalshi down, Polymarket healthy — verify partial ingest + flags
-- [ ] R6: Both venues down, route called — verify `CacheMode=true`
-- [ ] R7: Circuit breaker opens at 5 failures — verify OPEN state, no HTTP after
-- [ ] R8: Stale price detection across 5 cycles — verify flag + liquidity haircut
+- [x] R1: 503 × 2 then 200 — verify successful ingest after retry
+- [x] R2: 429 with `Retry-After: 2` — verify ≥2s wait
+- [x] R3: 429 × 3 exhausts retries — verify 5 min polling backoff
+- [x] R4: Response missing required field — verify T4 error, no partial normalization
+- [x] R5: Kalshi down, Polymarket healthy — verify partial ingest + flags
+- [x] R6: Both venues down, route called — verify `CacheMode=true`
+- [x] R7: Circuit breaker opens at 5 failures — verify OPEN state, no HTTP after
+- [x] R8: Stale price detection across 5 cycles — verify flag + liquidity haircut
 
 ### 3.2 Acceptance Criteria Validation
-- [ ] F1: `equinox ingest` fetches from both venues within 30s
-- [ ] F2: All ingested markets produce valid `CanonicalMarket` with no nil panics
+- [x] F1: `equinox ingest` fetches from both venues within 30s
+- [x] F2: All ingested markets produce valid `CanonicalMarket` with no nil panics
 - [ ] F3: `equinox match` identifies ≥5 known-equivalent pairs in live data
 - [ ] F4: `equinox match` rejects ≥10 known-non-equivalent pairs without false positives
-- [ ] F5: `equinox route` produces `RoutingDecision` with human-readable rationale
-- [ ] F6: Routing engine imports zero packages from `adapters/`
-- [ ] F7: All routing decisions logged as structured JSON via slog
-- [ ] F8: `equinox status` reports health when one venue unavailable
-- [ ] F9: On 5xx, adapter retries with backoff; marks `DataStalenessFlag=true`
-- [ ] F10: Both venues unavailable → typed error, not garbage data
+- [x] F5: `equinox route` produces `RoutingDecision` with human-readable rationale
+- [x] F6: Routing engine imports zero packages from `adapters/`
+- [x] F7: All routing decisions logged as structured JSON via slog
+- [x] F8: `equinox status` reports health when one venue unavailable
+- [x] F9: On 5xx, adapter retries with backoff; marks `DataStalenessFlag=true`
+- [x] F10: Both venues unavailable → typed error, not garbage data
 
 ### 3.3 Quality & Documentation
-- [ ] ≥80% unit test line coverage per layer
-- [ ] README: new engineer running in ≤15 min
-- [ ] No hard-coded credentials — all via env vars / `.env`
-- [ ] All assumptions (A1–A9) as structured comments in code (`// ASSUMPTION A1: ...`)
-- [ ] No adapter base URLs hard-coded — injectable for testing
+- [x] ≥80% unit test line coverage per layer
+- [x] README: new engineer running in ≤15 min
+- [x] No hard-coded credentials — all via env vars / `.env`
+- [x] All assumptions (A1–A9) as structured comments in code (`// ASSUMPTION A1: ...`)
+- [x] No adapter base URLs hard-coded — injectable for testing

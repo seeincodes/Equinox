@@ -162,11 +162,18 @@ func TestComputeBackoff_HonoursRetryAfter(t *testing.T) {
 }
 
 func TestComputeBackoff_ExponentialGrowth(t *testing.T) {
-	d1 := computeBackoff(1, 0)
-	d2 := computeBackoff(2, 0)
-	d3 := computeBackoff(3, 0)
+	// Sample multiple times to avoid jitter flukes
+	var d1Sum, d2Sum, d3Sum float64
+	n := 20
+	for i := 0; i < n; i++ {
+		d1Sum += float64(computeBackoff(1, 0))
+		d2Sum += float64(computeBackoff(2, 0))
+		d3Sum += float64(computeBackoff(3, 0))
+	}
+	avgD1 := d1Sum / float64(n)
+	avgD2 := d2Sum / float64(n)
+	avgD3 := d3Sum / float64(n)
 
-	// With jitter, d2 should be roughly 2× d1, d3 roughly 4× d1
-	assert.Greater(t, float64(d2), float64(d1)*1.5)
-	assert.Greater(t, float64(d3), float64(d2)*1.5)
+	assert.Greater(t, avgD2, avgD1*1.5)
+	assert.Greater(t, avgD3, avgD2*1.5)
 }

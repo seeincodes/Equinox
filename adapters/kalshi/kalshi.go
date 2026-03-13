@@ -14,6 +14,9 @@ import (
 )
 
 // ASSUMPTION A2: Kalshi read-only endpoints require no authentication for market data.
+// ASSUMPTION A4: Kalshi sandbox is representative of production schema.
+// ASSUMPTION A8: Venue APIs will generally be available during ingest cycles.
+// ASSUMPTION A9: Kalshi sandbox accessible for development.
 
 // Adapter implements adapters.VenueAdapter for the Kalshi exchange.
 type Adapter struct {
