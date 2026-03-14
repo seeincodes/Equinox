@@ -44,6 +44,7 @@ type Adapter struct {
 	clobClient  *resty.Client
 	cb          *adapters.CircuitBreaker
 	rp          *adapters.RetryPolicy
+	MaxMarkets  int
 }
 
 // New creates a Polymarket adapter with injectable base URLs for testing.
@@ -105,6 +106,10 @@ func (a *Adapter) FetchMarkets(ctx context.Context) ([]adapters.RawMarket, error
 			RawPayload: payload,
 			FetchedAt:  now,
 		})
+	}
+
+	if a.MaxMarkets > 0 && len(allMarkets) > a.MaxMarkets {
+		allMarkets = allMarkets[:a.MaxMarkets]
 	}
 
 	slog.Info("polymarket markets fetched", "count", len(allMarkets))

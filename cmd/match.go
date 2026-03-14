@@ -108,7 +108,6 @@ func loadCanonicalMarkets(db *store.DB) ([]models.CanonicalMarket, error) {
 		var outcomesJSON, rawJSON string
 		var resTime, resTimeUTC *string
 		var venue, status, contractType, settlement string
-		var staleness int
 		var ingestedAtStr string
 
 		if err := rows.Scan(
@@ -116,7 +115,7 @@ func loadCanonicalMarkets(db *store.DB) ([]models.CanonicalMarket, error) {
 			&outcomesJSON, &resTime, &resTimeUTC,
 			&cm.YesPrice, &cm.NoPrice, &cm.Spread, &cm.Liquidity, &cm.Volume24h,
 			&status, &contractType, &settlement,
-			&cm.SettlementNote, &cm.RulesHash, &staleness, &ingestedAtStr, &rawJSON,
+			&cm.SettlementNote, &cm.RulesHash, &cm.DataStalenessFlag, &ingestedAtStr, &rawJSON,
 		); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
@@ -125,7 +124,6 @@ func loadCanonicalMarkets(db *store.DB) ([]models.CanonicalMarket, error) {
 		cm.Status = models.MarketStatus(status)
 		cm.ContractType = models.ContractType(contractType)
 		cm.SettlementMechanism = models.SettlementType(settlement)
-		cm.DataStalenessFlag = staleness != 0
 
 		if resTime != nil {
 			if t, err := time.Parse(time.RFC3339, *resTime); err == nil {

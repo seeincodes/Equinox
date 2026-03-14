@@ -17,6 +17,7 @@ import (
 )
 
 var ingestVenue string
+var ingestLimit int
 
 var ingestCmd = &cobra.Command{
 	Use:   "ingest",
@@ -27,10 +28,11 @@ var ingestCmd = &cobra.Command{
 
 func init() {
 	ingestCmd.Flags().StringVar(&ingestVenue, "venue", "", "Filter by venue: kalshi or polymarket (default: both)")
+	ingestCmd.Flags().IntVar(&ingestLimit, "limit", 0, "Max markets to fetch per venue (0 = unlimited)")
 }
 
 func runIngest(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
 	db, err := store.New(cfg.SQLiteDBPath)
@@ -44,14 +46,19 @@ func runIngest(cmd *cobra.Command, args []string) error {
 	venue := strings.ToLower(ingestVenue)
 	switch venue {
 	case "kalshi":
-		adaptersToRun = append(adaptersToRun, kalshi.New(cfg.KalshiBaseURL, cfg.KalshiAPIKey))
+		ka := kalshi.New(cfg.KalshiBaseURL, cfg.KalshiAPIKey)
+		ka.MaxMarkets = ingestLimit
+		adaptersToRun = append(adaptersToRun, ka)
 	case "polymarket":
-		adaptersToRun = append(adaptersToRun, polymarket.New(cfg.PolymarketGammaURL, cfg.PolymarketCLOBURL))
+		pa := polymarket.New(cfg.PolymarketGammaURL, cfg.PolymarketCLOBURL)
+		pa.MaxMarkets = ingestLimit
+		adaptersToRun = append(adaptersToRun, pa)
 	case "":
-		adaptersToRun = append(adaptersToRun,
-			kalshi.New(cfg.KalshiBaseURL, cfg.KalshiAPIKey),
-			polymarket.New(cfg.PolymarketGammaURL, cfg.PolymarketCLOBURL),
-		)
+		ka := kalshi.New(cfg.KalshiBaseURL, cfg.KalshiAPIKey)
+		ka.MaxMarkets = ingestLimit
+		pa := polymarket.New(cfg.PolymarketGammaURL, cfg.PolymarketCLOBURL)
+		pa.MaxMarkets = ingestLimit
+		adaptersToRun = append(adaptersToRun, ka, pa)
 	default:
 		return fmt.Errorf("unknown venue %q: use 'kalshi' or 'polymarket'", ingestVenue)
 	}

@@ -42,10 +42,11 @@ func (f *flexFloat64) UnmarshalJSON(b []byte) error {
 
 // Adapter implements adapters.VenueAdapter for the Kalshi exchange.
 type Adapter struct {
-	client  *resty.Client
-	cb      *adapters.CircuitBreaker
-	rp      *adapters.RetryPolicy
-	baseURL string
+	client     *resty.Client
+	cb         *adapters.CircuitBreaker
+	rp         *adapters.RetryPolicy
+	baseURL    string
+	MaxMarkets int
 }
 
 func New(baseURL, apiKey string) *Adapter {
@@ -74,7 +75,7 @@ func (a *Adapter) FetchMarkets(ctx context.Context) ([]adapters.RawMarket, error
 	for {
 		params := map[string]string{
 			"status": "open",
-			"limit":  "100",
+			"limit":  "200",
 		}
 		if cursor != "" {
 			params["cursor"] = cursor
@@ -122,6 +123,11 @@ func (a *Adapter) FetchMarkets(ctx context.Context) ([]adapters.RawMarket, error
 				RawPayload: payload,
 				FetchedAt:  now,
 			})
+		}
+
+		if a.MaxMarkets > 0 && len(allMarkets) >= a.MaxMarkets {
+			allMarkets = allMarkets[:a.MaxMarkets]
+			break
 		}
 
 		if resp.Cursor == "" {

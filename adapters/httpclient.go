@@ -2,7 +2,10 @@ package adapters
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"time"
 
 	"equinox/models"
@@ -15,7 +18,11 @@ const defaultHTTPTimeout = 30 * time.Second
 // NewHTTPClient creates a resty client configured for venue API calls.
 // baseURL is injectable for testing via httptest.NewServer().
 func NewHTTPClient(baseURL string) *resty.Client {
-	client := resty.New().
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{},
+		ForceAttemptHTTP2: false,
+	}
+	client := resty.NewWithClient(&http.Client{Transport: transport}).
 		SetBaseURL(baseURL).
 		SetTimeout(defaultHTTPTimeout).
 		SetHeader("Accept", "application/json").
