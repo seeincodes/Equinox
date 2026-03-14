@@ -55,7 +55,19 @@ SQLITE_DB_PATH=./equinox.db
 
 # 6. Explain an equivalence group
 ./equinox explain --group <group_id>
+
+# 7. Start the REST API server
+./equinox serve --addr :8080
 ```
+
+### REST API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/markets?venue=&status=` | List canonical markets, with optional venue/status filters |
+| `GET` | `/groups?min_confidence=` | List equivalence groups, filtered by minimum confidence |
+| `POST` | `/route` | Route an order (body: `{"market_id":"...","side":"YES","size":100}`) |
+| `GET` | `/health` | System health: venue connectivity, database counts |
 
 ### Test
 
@@ -78,7 +90,8 @@ L4  Routing Engine      → RoutingDecision
 
 ```
 equinox/
-├── cmd/              # Cobra CLI commands (ingest, normalize, match, route, status, explain)
+├── api/              # Optional REST API server
+├── cmd/              # Cobra CLI commands (ingest, normalize, match, route, status, explain, serve)
 ├── adapters/         # L1 — VenueAdapter interface, retry, circuit breaker
 │   ├── kalshi/       # Kalshi exchange adapter
 │   └── polymarket/   # Polymarket adapter (Gamma + CLOB APIs)

@@ -36,4 +36,5 @@ func init() {
 	rootCmd.AddCommand(routeCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(explainCmd)
+	rootCmd.AddCommand(serveCmd)
 }

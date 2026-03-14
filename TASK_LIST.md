@@ -101,10 +101,10 @@
 - [x] Cache-only mode: `CacheMode=true` when all venues unavailable
 
 ### 2.2 Optional REST API
-- [ ] `GET /markets?venue=&status=`
-- [ ] `GET /groups?min_confidence=`
-- [ ] `POST /route` (body: OrderRequest → RoutingDecision)
-- [ ] `GET /health`
+- [x] `GET /markets?venue=&status=`
+- [x] `GET /groups?min_confidence=`
+- [x] `POST /route` (body: OrderRequest → RoutingDecision)
+- [x] `GET /health`
 
 ### 2.3 Edge Case Handling
 - [x] Handle missing resolution time (waive E2, add `RESOLUTION_TIME_MISSING` flag)
@@ -127,8 +127,8 @@
 ### 3.2 Acceptance Criteria Validation
 - [x] F1: `equinox ingest` fetches from both venues within 30s
 - [x] F2: All ingested markets produce valid `CanonicalMarket` with no nil panics
-- [ ] F3: `equinox match` identifies ≥5 known-equivalent pairs in live data
-- [ ] F4: `equinox match` rejects ≥10 known-non-equivalent pairs without false positives
+- [x] F3: `equinox match` identifies ≥5 known-equivalent pairs in live data
+- [x] F4: `equinox match` rejects ≥10 known-non-equivalent pairs without false positives
 - [x] F5: `equinox route` produces `RoutingDecision` with human-readable rationale
 - [x] F6: Routing engine imports zero packages from `adapters/`
 - [x] F7: All routing decisions logged as structured JSON via slog

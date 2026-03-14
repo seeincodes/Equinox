@@ -216,7 +216,11 @@ func buildRationale(order models.OrderRequest, selected models.CanonicalMarket, 
 
 	fmt.Fprintf(&b, "ROUTING DECISION [%s]\n", time.Now().Format(time.RFC3339))
 	fmt.Fprintf(&b, "Order: BUY %d %s on \"%s\"\n", order.Size, order.Side, selected.Title)
-	fmt.Fprintf(&b, "Equivalence Group: %s (%s, confidence: %.3f)\n", group.GroupID[:12], group.MatchMethod, group.ConfidenceScore)
+	groupIDShort := group.GroupID
+	if len(groupIDShort) > 12 {
+		groupIDShort = groupIDShort[:12]
+	}
+	fmt.Fprintf(&b, "Equivalence Group: %s (%s, confidence: %.3f)\n", groupIDShort, group.MatchMethod, group.ConfidenceScore)
 
 	var warnings []string
 	for _, f := range group.Flags {
