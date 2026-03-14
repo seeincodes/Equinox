@@ -24,20 +24,20 @@ func TestAdapter_FetchMarkets_Success(t *testing.T) {
 		resp := marketsResponse{
 			Markets: []kalshiMarket{
 				{
-					Ticker: "KXBTC-25MAR",
-					Title:  "Will Bitcoin exceed $100,000?",
-					Status: "open",
-					YesBid: 65,
-					YesAsk: 68,
-					NoBid:  32,
-					NoAsk:  35,
+					Ticker:        "KXBTC-25MAR",
+					Title:         "Will Bitcoin exceed $100,000?",
+					Status:        "active",
+					YesBidDollars: "0.6500",
+					YesAskDollars: "0.6800",
+					NoBidDollars:  "0.3200",
+					NoAskDollars:  "0.3500",
 				},
 				{
-					Ticker: "KXFED-APR2026",
-					Title:  "Will the Fed cut rates in April?",
-					Status: "open",
-					YesBid: 45,
-					YesAsk: 48,
+					Ticker:        "KXFED-APR2026",
+					Title:         "Will the Fed cut rates in April?",
+					Status:        "active",
+					YesBidDollars: "0.4500",
+					YesAskDollars: "0.4800",
 				},
 			},
 			Cursor: "",
@@ -68,14 +68,14 @@ func TestAdapter_FetchMarkets_Pagination(t *testing.T) {
 		if cursor == "" {
 			resp = marketsResponse{
 				Markets: []kalshiMarket{
-					{Ticker: "MKT1", Title: "Market 1", Status: "open"},
+					{Ticker: "MKT1", Title: "Market 1", Status: "active"},
 				},
 				Cursor: "page2",
 			}
 		} else {
 			resp = marketsResponse{
 				Markets: []kalshiMarket{
-					{Ticker: "MKT2", Title: "Market 2", Status: "open"},
+					{Ticker: "MKT2", Title: "Market 2", Status: "active"},
 				},
 				Cursor: "",
 			}
@@ -99,7 +99,7 @@ func TestAdapter_FetchMarkets_SkipsInvalidMarkets(t *testing.T) {
 	mux.HandleFunc("/markets", func(w http.ResponseWriter, r *http.Request) {
 		resp := marketsResponse{
 			Markets: []kalshiMarket{
-				{Ticker: "VALID", Title: "Valid Market", Status: "open"},
+				{Ticker: "VALID", Title: "Valid Market", Status: "active"},
 				{Ticker: "", Title: "Missing ticker", Status: "open"},
 			},
 		}
@@ -190,17 +190,17 @@ func TestValidateKalshiMarket(t *testing.T) {
 	}{
 		{
 			name:    "valid",
-			market:  kalshiMarket{Ticker: "T1", Title: "Test", Status: "open"},
+			market:  kalshiMarket{Ticker: "T1", Title: "Test", Status: "active"},
 			wantErr: false,
 		},
 		{
 			name:    "missing ticker",
-			market:  kalshiMarket{Title: "Test", Status: "open"},
+			market:  kalshiMarket{Title: "Test", Status: "active"},
 			wantErr: true,
 		},
 		{
 			name:    "missing title",
-			market:  kalshiMarket{Ticker: "T1", Status: "open"},
+			market:  kalshiMarket{Ticker: "T1", Status: "active"},
 			wantErr: true,
 		},
 		{

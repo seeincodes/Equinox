@@ -10,7 +10,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-const defaultHTTPTimeout = 15 * time.Second
+const defaultHTTPTimeout = 30 * time.Second
 
 // NewHTTPClient creates a resty client configured for venue API calls.
 // baseURL is injectable for testing via httptest.NewServer().
@@ -18,7 +18,8 @@ func NewHTTPClient(baseURL string) *resty.Client {
 	client := resty.New().
 		SetBaseURL(baseURL).
 		SetTimeout(defaultHTTPTimeout).
-		SetHeader("Accept", "application/json")
+		SetHeader("Accept", "application/json").
+		SetHeader("User-Agent", "equinox/1.0")
 	return client
 }
 
@@ -32,12 +33,14 @@ func DoGet(ctx context.Context, client *resty.Client, venue models.Venue, path s
 			return err
 		}
 
+		start := time.Now()
 		req := client.R().SetContext(ctx)
 		if queryParams != nil {
 			req.SetQueryParams(queryParams)
 		}
 
 		resp, err := req.Get(path)
+		slog.Debug("HTTP GET completed", "venue", venue, "path", path, "elapsed", time.Since(start).String(), "err", err)
 		if err != nil {
 			adErr := &AdapterError{
 				Venue:      venue,

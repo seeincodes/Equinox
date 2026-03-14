@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"equinox/adapters"
@@ -12,6 +13,27 @@ import (
 
 	"github.com/go-resty/resty/v2"
 )
+
+// flexFloat64 handles JSON fields that may arrive as either a number or a string.
+type flexFloat64 float64
+
+func (f *flexFloat64) UnmarshalJSON(b []byte) error {
+	var n float64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*f = flexFloat64(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("flexFloat64: cannot parse %s", string(b))
+	}
+	n, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("flexFloat64: cannot parse string %q: %w", s, err)
+	}
+	*f = flexFloat64(n)
+	return nil
+}
 
 // ASSUMPTION A3: Polymarket read-only endpoints remain public.
 // ASSUMPTION A8: Venue APIs will generally be available during ingest cycles.
@@ -219,28 +241,28 @@ func validateGammaMarket(m gammaMarket) error {
 // API response structs
 
 type gammaMarket struct {
-	ID              string  `json:"id"`
-	Question        string  `json:"question"`
-	Description     string  `json:"description"`
-	ConditionID     string  `json:"conditionId"`
-	Slug            string  `json:"slug"`
-	EndDate         string  `json:"endDate"`
-	Liquidity       float64 `json:"liquidity"`
-	Volume          float64 `json:"volume"`
-	Volume24h       float64 `json:"volume24hr"`
-	Active          bool    `json:"active"`
-	Closed          bool    `json:"closed"`
-	Funded          bool    `json:"funded"`
-	Archived        bool    `json:"archived"`
-	New             bool    `json:"new"`
-	Featured        bool    `json:"featured"`
-	Restricted      bool    `json:"restricted"`
-	GroupItemTitle  string  `json:"groupItemTitle"`
-	OutcomePrices   string  `json:"outcomePrices"` // JSON-encoded string: "[\"0.65\",\"0.35\"]"
-	Outcomes        string  `json:"outcomes"`       // JSON-encoded string: "[\"Yes\",\"No\"]"
-	ClobTokenIDs    string  `json:"clobTokenIds"`   // JSON-encoded string
-	NegRisk         bool    `json:"neg_risk"`
-	NegRiskMarketID string  `json:"neg_risk_market_id"`
+	ID              string      `json:"id"`
+	Question        string      `json:"question"`
+	Description     string      `json:"description"`
+	ConditionID     string      `json:"conditionId"`
+	Slug            string      `json:"slug"`
+	EndDate         string      `json:"endDate"`
+	Liquidity       flexFloat64 `json:"liquidity"`
+	Volume          flexFloat64 `json:"volume"`
+	Volume24h       flexFloat64 `json:"volume24hr"`
+	Active          bool        `json:"active"`
+	Closed          bool        `json:"closed"`
+	Funded          bool        `json:"funded"`
+	Archived        bool        `json:"archived"`
+	New             bool        `json:"new"`
+	Featured        bool        `json:"featured"`
+	Restricted      bool        `json:"restricted"`
+	GroupItemTitle  string      `json:"groupItemTitle"`
+	OutcomePrices   string      `json:"outcomePrices"` // JSON-encoded string: "[\"0.65\",\"0.35\"]"
+	Outcomes        string      `json:"outcomes"`       // JSON-encoded string: "[\"Yes\",\"No\"]"
+	ClobTokenIDs    string      `json:"clobTokenIds"`   // JSON-encoded string
+	NegRisk         bool        `json:"neg_risk"`
+	NegRiskMarketID string      `json:"neg_risk_market_id"`
 }
 
 type clobMarketsResponse struct {

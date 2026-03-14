@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"equinox/adapters"
@@ -12,6 +13,27 @@ import (
 
 	"github.com/go-resty/resty/v2"
 )
+
+// flexFloat64 handles JSON fields that may arrive as either a number or a string.
+type flexFloat64 float64
+
+func (f *flexFloat64) UnmarshalJSON(b []byte) error {
+	var n float64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*f = flexFloat64(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("flexFloat64: cannot parse %s", string(b))
+	}
+	n, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("flexFloat64: cannot parse string %q: %w", s, err)
+	}
+	*f = flexFloat64(n)
+	return nil
+}
 
 // ASSUMPTION A2: Kalshi read-only endpoints require no authentication for market data.
 // ASSUMPTION A4: Kalshi sandbox is representative of production schema.
@@ -174,32 +196,30 @@ type marketsResponse struct {
 }
 
 type kalshiMarket struct {
-	Ticker           string  `json:"ticker"`
-	EventTicker      string  `json:"event_ticker"`
-	Title            string  `json:"title"`
-	Subtitle         string  `json:"subtitle"`
-	Status           string  `json:"status"`
-	YesBid           int     `json:"yes_bid"`
-	YesAsk           int     `json:"yes_ask"`
-	NoBid            int     `json:"no_bid"`
-	NoAsk            int     `json:"no_ask"`
-	LastPrice        int     `json:"last_price"`
-	Volume           int     `json:"volume"`
-	Volume24h        int     `json:"volume_24h"`
-	OpenInterest     int     `json:"open_interest"`
-	CloseTime        string  `json:"close_time"`
-	ExpirationTime   string  `json:"expiration_time"`
-	Category         string  `json:"category"`
-	RulesURL         string  `json:"rules_url"`
-	RulesPrimary     string  `json:"rules_primary"`
-	Result           string  `json:"result"`
-	CanCloseEarly    bool    `json:"can_close_early"`
-	ExpirationValue  string  `json:"expiration_value"`
-	// ASSUMPTION A3: Kalshi markets are BINARY unless event_ticker analysis shows otherwise.
-	MarketType       string  `json:"market_type"`
-	OpenTime         string  `json:"open_time"`
-	SettlementValue  *int    `json:"settlement_value"`
-	Liquidity        float64 `json:"liquidity"`
+	Ticker             string `json:"ticker"`
+	EventTicker        string `json:"event_ticker"`
+	Title              string `json:"title"`
+	Subtitle           string `json:"subtitle"`
+	Status             string `json:"status"`
+	YesBidDollars      string `json:"yes_bid_dollars"`
+	YesAskDollars      string `json:"yes_ask_dollars"`
+	NoBidDollars       string `json:"no_bid_dollars"`
+	NoAskDollars       string `json:"no_ask_dollars"`
+	LastPriceDollars   string `json:"last_price_dollars"`
+	VolumeFP           string `json:"volume_fp"`
+	Volume24hFP        string `json:"volume_24h_fp"`
+	OpenInterestFP     string `json:"open_interest_fp"`
+	LiquidityDollars   string `json:"liquidity_dollars"`
+	CloseTime          string `json:"close_time"`
+	ExpirationTime     string `json:"expiration_time"`
+	RulesPrimary       string `json:"rules_primary"`
+	RulesSecondary     string `json:"rules_secondary"`
+	Result             string `json:"result"`
+	CanCloseEarly      bool   `json:"can_close_early"`
+	ExpirationValue    string `json:"expiration_value"`
+	MarketType         string `json:"market_type"`
+	OpenTime           string `json:"open_time"`
+	NotionalValue      string `json:"notional_value_dollars"`
 }
 
 type orderbookResponse struct {

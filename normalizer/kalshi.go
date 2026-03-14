@@ -3,6 +3,7 @@ package normalizer
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"equinox/adapters"
@@ -10,19 +11,25 @@ import (
 )
 
 type kalshiPayload struct {
-	Ticker          string  `json:"ticker"`
-	Title           string  `json:"title"`
-	Subtitle        string  `json:"subtitle"`
-	Status          string  `json:"status"`
-	YesBid          int     `json:"yes_bid"`
-	YesAsk          int     `json:"yes_ask"`
-	NoBid           int     `json:"no_bid"`
-	NoAsk           int     `json:"no_ask"`
-	Volume24h       int     `json:"volume_24h"`
-	CloseTime       string  `json:"close_time"`
-	RulesPrimary    string  `json:"rules_primary"`
-	Liquidity       float64 `json:"liquidity"`
-	MarketType      string  `json:"market_type"`
+	Ticker             string `json:"ticker"`
+	Title              string `json:"title"`
+	Subtitle           string `json:"subtitle"`
+	Status             string `json:"status"`
+	YesBidDollars      string `json:"yes_bid_dollars"`
+	YesAskDollars      string `json:"yes_ask_dollars"`
+	NoBidDollars       string `json:"no_bid_dollars"`
+	NoAskDollars       string `json:"no_ask_dollars"`
+	Volume24hFP        string `json:"volume_24h_fp"`
+	CloseTime          string `json:"close_time"`
+	ExpirationTime     string `json:"expiration_time"`
+	RulesPrimary       string `json:"rules_primary"`
+	LiquidityDollars   string `json:"liquidity_dollars"`
+	MarketType         string `json:"market_type"`
+}
+
+func parseDollarString(s string) float64 {
+	v, _ := strconv.ParseFloat(s, 64)
+	return v
 }
 
 func normalizeKalshi(raw adapters.RawMarket) (*models.CanonicalMarket, error) {
@@ -31,17 +38,27 @@ func normalizeKalshi(raw adapters.RawMarket) (*models.CanonicalMarket, error) {
 		return nil, fmt.Errorf("unmarshal kalshi payload: %w", err)
 	}
 
-	// Price normalization: cents (1-99) → 0.0-1.0
-	yesPrice := (float64(p.YesBid) + float64(p.YesAsk)) / 200.0
+	yesBid := parseDollarString(p.YesBidDollars)
+	yesAsk := parseDollarString(p.YesAskDollars)
+	yesPrice := (yesBid + yesAsk) / 2.0
 	noPrice := 1.0 - yesPrice
-	spread := float64(p.YesAsk-p.YesBid) / 100.0
+	spread := yesAsk - yesBid
+	if spread < 0 {
+		spread = 0
+	}
+
+	liquidity := parseDollarString(p.LiquidityDollars)
 
 	status := mapKalshiStatus(p.Status)
 
 	var resolutionTime *time.Time
 	var resolutionTimeUTC *time.Time
-	if p.CloseTime != "" {
-		if t, err := time.Parse(time.RFC3339, p.CloseTime); err == nil {
+	closeTimeStr := p.CloseTime
+	if closeTimeStr == "" {
+		closeTimeStr = p.ExpirationTime
+	}
+	if closeTimeStr != "" {
+		if t, err := time.Parse(time.RFC3339, closeTimeStr); err == nil {
 			resolutionTime = &t
 			utc := t.UTC()
 			resolutionTimeUTC = &utc
@@ -53,14 +70,13 @@ func normalizeKalshi(raw adapters.RawMarket) (*models.CanonicalMarket, error) {
 		description = p.Subtitle
 	}
 
-	vol := float64(p.Volume24h)
-	var vol24h *float64
-	if p.Volume24h > 0 {
-		vol24h = &vol
+	vol24h := parseDollarString(p.Volume24hFP)
+	var vol24hPtr *float64
+	if vol24h > 0 {
+		vol24hPtr = &vol24h
 	}
 
 	contractType := models.ContractBinary
-	// ASSUMPTION A3: Kalshi markets default to BINARY
 	if p.MarketType == "categorical" {
 		contractType = models.ContractCategorical
 	} else if p.MarketType == "scalar" {
@@ -84,8 +100,8 @@ func normalizeKalshi(raw adapters.RawMarket) (*models.CanonicalMarket, error) {
 		YesPrice:            yesPrice,
 		NoPrice:             noPrice,
 		Spread:              spread,
-		Liquidity:           p.Liquidity,
-		Volume24h:           vol24h,
+		Liquidity:           liquidity,
+		Volume24h:           vol24hPtr,
 		Status:              status,
 		ContractType:        contractType,
 		SettlementMechanism: models.SettlementCFTC,
@@ -99,7 +115,7 @@ func normalizeKalshi(raw adapters.RawMarket) (*models.CanonicalMarket, error) {
 
 func mapKalshiStatus(s string) models.MarketStatus {
 	switch s {
-	case "open":
+	case "open", "active":
 		return models.StatusOpen
 	case "closed":
 		return models.StatusClosed

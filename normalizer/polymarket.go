@@ -10,26 +10,47 @@ import (
 	"equinox/models"
 )
 
+// flexFloat64 handles JSON fields that may arrive as either a number or a string.
+type flexFloat64 float64
+
+func (f *flexFloat64) UnmarshalJSON(b []byte) error {
+	var n float64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*f = flexFloat64(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("flexFloat64: cannot parse %s", string(b))
+	}
+	n, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("flexFloat64: cannot parse string %q: %w", s, err)
+	}
+	*f = flexFloat64(n)
+	return nil
+}
+
 type polymergedPayload struct {
 	Gamma polyGamma  `json:"gamma"`
 	CLOB  *polyCLOB  `json:"clob,omitempty"`
 }
 
 type polyGamma struct {
-	ID              string  `json:"id"`
-	Question        string  `json:"question"`
-	Description     string  `json:"description"`
-	ConditionID     string  `json:"conditionId"`
-	EndDate         string  `json:"endDate"`
-	Liquidity       float64 `json:"liquidity"`
-	Volume24h       float64 `json:"volume24hr"`
-	Active          bool    `json:"active"`
-	Closed          bool    `json:"closed"`
-	Funded          bool    `json:"funded"`
-	OutcomePrices   string  `json:"outcomePrices"` // JSON-encoded: "[\"0.65\",\"0.35\"]"
-	Outcomes        string  `json:"outcomes"`       // JSON-encoded: "[\"Yes\",\"No\"]"
-	NegRisk         bool    `json:"neg_risk"`
-	NegRiskMarketID string  `json:"neg_risk_market_id"`
+	ID              string      `json:"id"`
+	Question        string      `json:"question"`
+	Description     string      `json:"description"`
+	ConditionID     string      `json:"conditionId"`
+	EndDate         string      `json:"endDate"`
+	Liquidity       flexFloat64 `json:"liquidity"`
+	Volume24h       flexFloat64 `json:"volume24hr"`
+	Active          bool        `json:"active"`
+	Closed          bool        `json:"closed"`
+	Funded          bool        `json:"funded"`
+	OutcomePrices   string      `json:"outcomePrices"` // JSON-encoded: "[\"0.65\",\"0.35\"]"
+	Outcomes        string      `json:"outcomes"`       // JSON-encoded: "[\"Yes\",\"No\"]"
+	NegRisk         bool        `json:"neg_risk"`
+	NegRiskMarketID string      `json:"neg_risk_market_id"`
 }
 
 type polyCLOB struct {
@@ -95,7 +116,7 @@ func normalizePolymarket(raw adapters.RawMarket) (*models.CanonicalMarket, error
 
 	var vol24h *float64
 	if p.Gamma.Volume24h > 0 {
-		v := p.Gamma.Volume24h
+		v := float64(p.Gamma.Volume24h)
 		vol24h = &v
 	}
 
@@ -126,7 +147,7 @@ func normalizePolymarket(raw adapters.RawMarket) (*models.CanonicalMarket, error
 		YesPrice:            yesPrice,
 		NoPrice:             noPrice,
 		Spread:              spread,
-		Liquidity:           p.Gamma.Liquidity,
+		Liquidity:           float64(p.Gamma.Liquidity),
 		Volume24h:           vol24h,
 		Status:              status,
 		ContractType:        contractType,

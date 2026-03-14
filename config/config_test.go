@@ -11,8 +11,8 @@ func TestLoadDefaults(t *testing.T) {
 	}
 
 	// Verify defaults from PRD
-	if cfg.KalshiBaseURL != "https://demo-api.kalshi.co/trade-api/v2" {
-		t.Errorf("KalshiBaseURL = %q, want sandbox URL", cfg.KalshiBaseURL)
+	if cfg.KalshiBaseURL != "https://api.elections.kalshi.com/trade-api/v2" {
+		t.Errorf("KalshiBaseURL = %q, want elections API URL", cfg.KalshiBaseURL)
 	}
 	if cfg.PolymarketGammaURL != "https://gamma-api.polymarket.com" {
 		t.Errorf("PolymarketGammaURL = %q", cfg.PolymarketGammaURL)

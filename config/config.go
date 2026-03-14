@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 
 	// Defaults
-	viper.SetDefault("KALSHI_BASE_URL", "https://demo-api.kalshi.co/trade-api/v2")
+	viper.SetDefault("KALSHI_BASE_URL", "https://api.elections.kalshi.com/trade-api/v2")
 	viper.SetDefault("POLYMARKET_GAMMA_URL", "https://gamma-api.polymarket.com")
 	viper.SetDefault("POLYMARKET_CLOB_URL", "https://clob.polymarket.com")
 	viper.SetDefault("SQLITE_DB_PATH", "./equinox.db")
@@ -85,7 +85,58 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	applyDefaults(&cfg)
 	return &cfg, nil
+}
+
+// applyDefaults fills zero-value fields that the .env file may have blanked out.
+func applyDefaults(cfg *Config) {
+	setDefault(&cfg.KalshiBaseURL, "https://api.elections.kalshi.com/trade-api/v2")
+	setDefault(&cfg.PolymarketGammaURL, "https://gamma-api.polymarket.com")
+	setDefault(&cfg.PolymarketCLOBURL, "https://clob.polymarket.com")
+	setDefault(&cfg.SQLiteDBPath, "./equinox.db")
+	setDefault(&cfg.LogLevel, "INFO")
+	setDefault(&cfg.LogFormat, "json")
+
+	if cfg.PollIntervalSeconds == 0 {
+		cfg.PollIntervalSeconds = 60
+	}
+	if cfg.EmbeddingSimilarityHigh == 0 {
+		cfg.EmbeddingSimilarityHigh = 0.92
+	}
+	if cfg.EmbeddingSimilarityLow == 0 {
+		cfg.EmbeddingSimilarityLow = 0.78
+	}
+	if cfg.JaccardThreshold == 0 {
+		cfg.JaccardThreshold = 0.25
+	}
+	if cfg.LevenshteinThreshold == 0 {
+		cfg.LevenshteinThreshold = 0.40
+	}
+	if cfg.ResolutionWindowHours == 0 {
+		cfg.ResolutionWindowHours = 48
+	}
+	if cfg.WeightPriceQuality == 0 {
+		cfg.WeightPriceQuality = 0.40
+	}
+	if cfg.WeightLiquidity == 0 {
+		cfg.WeightLiquidity = 0.35
+	}
+	if cfg.WeightSpreadQuality == 0 {
+		cfg.WeightSpreadQuality = 0.15
+	}
+	if cfg.WeightMarketStatus == 0 {
+		cfg.WeightMarketStatus = 0.10
+	}
+	if cfg.StalenessLiquidityHaircut == 0 {
+		cfg.StalenessLiquidityHaircut = 0.20
+	}
+}
+
+func setDefault(field *string, fallback string) {
+	if *field == "" {
+		*field = fallback
+	}
 }
 
 // InitLogger sets up slog based on config.

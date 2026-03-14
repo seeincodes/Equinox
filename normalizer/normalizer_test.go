@@ -50,18 +50,18 @@ func TestComputeRulesHash_NormalizesWhitespace(t *testing.T) {
 
 func TestNormalizeKalshi(t *testing.T) {
 	payload := map[string]interface{}{
-		"ticker":        "KXBTC-100K",
-		"title":         "Will Bitcoin exceed $100,000?",
-		"subtitle":      "Bitcoin price milestone",
-		"status":        "open",
-		"yes_bid":       65,
-		"yes_ask":       68,
-		"no_bid":        32,
-		"no_ask":        35,
-		"volume_24h":    1500,
-		"close_time":    "2026-04-01T00:00:00Z",
-		"rules_primary": "Resolves YES if BTC > $100k on CoinGecko.",
-		"liquidity":     25000.0,
+		"ticker":            "KXBTC-100K",
+		"title":             "Will Bitcoin exceed $100,000?",
+		"subtitle":          "Bitcoin price milestone",
+		"status":            "active",
+		"yes_bid_dollars":   "0.6500",
+		"yes_ask_dollars":   "0.6800",
+		"no_bid_dollars":    "0.3200",
+		"no_ask_dollars":    "0.3500",
+		"volume_24h_fp":     "1500.00",
+		"close_time":        "2026-04-01T00:00:00Z",
+		"rules_primary":     "Resolves YES if BTC > $100k on CoinGecko.",
+		"liquidity_dollars": "25000.0000",
 	}
 	rawPayload, _ := json.Marshal(payload)
 
@@ -84,11 +84,12 @@ func TestNormalizeKalshi(t *testing.T) {
 	assert.Equal(t, "Will Bitcoin exceed $100,000?", cm.Title)
 	assert.NotEmpty(t, cm.NormalizedTitle)
 
-	// Price normalization: (65+68)/200 = 0.665
+	// Price: (0.65 + 0.68) / 2 = 0.665
 	assert.InDelta(t, 0.665, cm.YesPrice, 0.001)
 	assert.InDelta(t, 0.335, cm.NoPrice, 0.001)
-	// Spread: (68-65)/100 = 0.03
+	// Spread: 0.68 - 0.65 = 0.03
 	assert.InDelta(t, 0.03, cm.Spread, 0.001)
+	assert.InDelta(t, 25000.0, cm.Liquidity, 1.0)
 
 	assert.Equal(t, models.StatusOpen, cm.Status)
 	assert.Equal(t, models.ContractBinary, cm.ContractType)
@@ -105,6 +106,7 @@ func TestNormalizeKalshi_StatusMapping(t *testing.T) {
 		expected     models.MarketStatus
 	}{
 		{"open", models.StatusOpen},
+		{"active", models.StatusOpen},
 		{"closed", models.StatusClosed},
 		{"settled", models.StatusResolved},
 		{"unknown", models.StatusSuspended},
