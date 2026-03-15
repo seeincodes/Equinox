@@ -259,3 +259,105 @@ func TestGetHealth_DatabaseCounts(t *testing.T) {
 	assert.Equal(t, float64(3), counts["canonical_markets"])
 	assert.Equal(t, float64(1), counts["equivalence_groups"])
 }
+
+func TestPostRouteBatch_Success(t *testing.T) {
+	srv, db := setupTestServer(t)
+	seedCanonicalMarkets(t, db)
+	seedEquivalenceGroup(t, db)
+
+	orders := []map[string]interface{}{
+		{"market_id": "KALSHI:test-1", "side": "YES", "size": 100},
+		{"market_id": "POLYMARKET:test-2", "side": "NO", "size": 50},
+	}
+	body, _ := json.Marshal(orders)
+
+	req := httptest.NewRequest(http.MethodPost, "/route/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, float64(2), resp["successful_count"])
+	assert.Equal(t, float64(0), resp["error_count"])
+	assert.NotEmpty(t, resp["decisions"])
+}
+
+func TestPostRouteBatch_PartialErrors(t *testing.T) {
+	srv, db := setupTestServer(t)
+	seedCanonicalMarkets(t, db)
+	seedEquivalenceGroup(t, db)
+
+	orders := []map[string]interface{}{
+		{"market_id": "KALSHI:test-1", "side": "YES", "size": 100},
+		{"market_id": "NONEXISTENT:xyz", "side": "YES", "size": 50},
+	}
+	body, _ := json.Marshal(orders)
+
+	req := httptest.NewRequest(http.MethodPost, "/route/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, float64(1), resp["successful_count"])
+	assert.Equal(t, float64(1), resp["error_count"])
+}
+
+func TestGetDecisions_Empty(t *testing.T) {
+	srv, _ := setupTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/decisions", nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, float64(0), resp["count"])
+}
+
+func TestGetDecisions_WithVenueFilter(t *testing.T) {
+	srv, db := setupTestServer(t)
+	seedCanonicalMarkets(t, db)
+	seedEquivalenceGroup(t, db)
+
+	// Create a routing decision
+	_, err := db.Conn().Exec(`
+		INSERT INTO routing_decisions
+			(decision_id, group_id, order_request, selected_venue, selected_market_id,
+			 rejected_alternatives, scoring_breakdown, routing_rationale, simulated_only)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		"dec-1", "grp-1", `{"market_id":"KALSHI:test-1","side":"YES","size":100}`,
+		"KALSHI", "KALSHI:test-1", `[]`, `{}`, "Test decision", 1)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/decisions?venue=KALSHI", nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, float64(1), resp["count"])
+	decisions := resp["decisions"].([]interface{})
+	assert.Len(t, decisions, 1)
+}
+
+func TestGetGroupHistory_NotFound(t *testing.T) {
+	srv, _ := setupTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/groups/nonexistent-group/history", nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}

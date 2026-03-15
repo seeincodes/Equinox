@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"equinox/adapters/kalshi"
@@ -35,7 +36,10 @@ func NewServer(db *store.DB, cfg *config.Config, addr string) *Server {
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /markets", s.handleGetMarkets)
 	s.mux.HandleFunc("GET /groups", s.handleGetGroups)
+	s.mux.HandleFunc("GET /groups/{id}/history", s.handleGetGroupHistory)
 	s.mux.HandleFunc("POST /route", s.handlePostRoute)
+	s.mux.HandleFunc("POST /route/batch", s.handlePostRouteBatch)
+	s.mux.HandleFunc("GET /decisions", s.handleGetDecisions)
 	s.mux.HandleFunc("GET /health", s.handleGetHealth)
 }
 
@@ -192,7 +196,277 @@ func (s *Server) handlePostRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Persist decision to audit trail
+	if err := s.persistDecision(*decision); err != nil {
+		slog.Warn("failed to persist routing decision", "decision_id", decision.DecisionID, "error", err)
+	}
+
 	writeJSON(w, http.StatusOK, decision)
+}
+
+// POST /route/batch — route multiple orders in a single request
+func (s *Server) handlePostRouteBatch(w http.ResponseWriter, r *http.Request) {
+	var orders []models.OrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&orders); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	if len(orders) == 0 {
+		writeError(w, http.StatusBadRequest, "orders array cannot be empty")
+		return
+	}
+
+	engine := routing.NewEngine(routing.Config{
+		WeightPriceQuality:        s.cfg.WeightPriceQuality,
+		WeightLiquidity:           s.cfg.WeightLiquidity,
+		WeightSpreadQuality:       s.cfg.WeightSpreadQuality,
+		WeightMarketStatus:        s.cfg.WeightMarketStatus,
+		StalenessLiquidityHaircut: s.cfg.StalenessLiquidityHaircut,
+	})
+
+	var decisions []models.RoutingDecision
+	var errors []map[string]interface{}
+
+	for i, order := range orders {
+		if order.MarketID == "" || order.Side == "" || order.Size <= 0 {
+			errors = append(errors, map[string]interface{}{
+				"index":   i,
+				"error":   "market_id, side, and size (>0) are required",
+				"request": order,
+			})
+			continue
+		}
+
+		group, err := s.findGroupForMarket(order.MarketID)
+		if err != nil {
+			errors = append(errors, map[string]interface{}{
+				"index": i,
+				"error": err.Error(),
+			})
+			continue
+		}
+
+		decision, err := engine.Route(order, *group)
+		if err != nil {
+			errors = append(errors, map[string]interface{}{
+				"index": i,
+				"error": "routing failed: " + err.Error(),
+			})
+			continue
+		}
+
+		// Persist decision to database
+		if err := s.persistDecision(*decision); err != nil {
+			slog.Warn("failed to persist routing decision", "decision_id", decision.DecisionID, "error", err)
+		}
+
+		decisions = append(decisions, *decision)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"decisions":        decisions,
+		"successful_count": len(decisions),
+		"errors":           errors,
+		"error_count":      len(errors),
+	})
+}
+
+// GET /decisions?venue=POLYMARKET&after=2026-03-13 — audit trail with filtering
+func (s *Server) handleGetDecisions(w http.ResponseWriter, r *http.Request) {
+	venueFilter := r.URL.Query().Get("venue")
+	afterStr := r.URL.Query().Get("after")
+
+	query := `
+		SELECT decision_id, group_id, order_request, selected_venue, selected_market_id,
+		       rejected_alternatives, scoring_breakdown, routing_rationale, cache_mode, created_at
+		FROM routing_decisions
+		WHERE 1=1
+	`
+	var args []interface{}
+
+	if venueFilter != "" {
+		query += " AND selected_venue = ?"
+		args = append(args, venueFilter)
+	}
+
+	if afterStr != "" {
+		// Parse ISO 8601 date (e.g., "2026-03-13" or "2026-03-13T15:30:00Z")
+		afterTime, err := time.Parse(time.RFC3339, afterStr)
+		if err != nil {
+			// Try parsing as date only
+			afterTime, err = time.Parse("2006-01-02", afterStr)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid 'after' date format: use ISO 8601")
+				return
+			}
+		}
+		query += " AND created_at >= ?"
+		args = append(args, afterTime)
+	}
+
+	query += " ORDER BY created_at DESC LIMIT 1000"
+
+	rows, err := s.db.Conn().Query(query, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "query failed: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	type decisionSummary struct {
+		DecisionID           string          `json:"decision_id"`
+		GroupID              string          `json:"group_id"`
+		OrderRequest         json.RawMessage `json:"order_request"`
+		SelectedVenue        string          `json:"selected_venue"`
+		SelectedMarketID     string          `json:"selected_market_id"`
+		RejectedAlternatives json.RawMessage `json:"rejected_alternatives"`
+		ScoringBreakdown     json.RawMessage `json:"scoring_breakdown"`
+		RoutingRationale     string          `json:"routing_rationale"`
+		CacheMode            bool            `json:"cache_mode"`
+		CreatedAt            string          `json:"created_at"`
+	}
+
+	var decisions []decisionSummary
+	for rows.Next() {
+		var d decisionSummary
+		var orderReqJSON, rejectedJSON, scoringJSON string
+
+		if err := rows.Scan(&d.DecisionID, &d.GroupID, &orderReqJSON, &d.SelectedVenue,
+			&d.SelectedMarketID, &rejectedJSON, &scoringJSON, &d.RoutingRationale,
+			&d.CacheMode, &d.CreatedAt); err != nil {
+			continue
+		}
+
+		d.OrderRequest = json.RawMessage(orderReqJSON)
+		d.RejectedAlternatives = json.RawMessage(rejectedJSON)
+		d.ScoringBreakdown = json.RawMessage(scoringJSON)
+		decisions = append(decisions, d)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"decisions": decisions,
+		"count":     len(decisions),
+	})
+}
+
+// GET /groups/{id}/history — pricing time-series for an equivalence group
+func (s *Server) handleGetGroupHistory(w http.ResponseWriter, r *http.Request) {
+	groupID := r.PathValue("id")
+	if groupID == "" {
+		writeError(w, http.StatusBadRequest, "group id required")
+		return
+	}
+
+	// Fetch the group to get member IDs
+	var memberIDsJSON string
+	err := s.db.Conn().QueryRow(
+		"SELECT member_ids FROM equivalence_groups WHERE group_id = ?",
+		groupID,
+	).Scan(&memberIDsJSON)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "group not found")
+		return
+	}
+
+	var memberIDs []string
+	if err := json.Unmarshal([]byte(memberIDsJSON), &memberIDs); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to parse member ids")
+		return
+	}
+
+	// Get pricing history for all members in this group
+	type priceSnapshot struct {
+		Timestamp string                            `json:"timestamp"`
+		Members   map[string]map[string]interface{} `json:"members"`
+	}
+
+	// Query raw markets to get historical pricing
+	query := `
+		SELECT rm.ingested_at, rm.venue, rm.raw_payload
+		FROM raw_markets rm
+		WHERE 1=1
+	`
+	var args []interface{}
+
+	// Build venue filter from member IDs
+	venuesInGroup := make(map[string]bool)
+	for _, id := range memberIDs {
+		// Parse venue from market ID (e.g., "KALSHI:xxx" -> "KALSHI")
+		parts := strings.Split(id, ":")
+		if len(parts) >= 1 {
+			venuesInGroup[parts[0]] = true
+		}
+	}
+
+	if len(venuesInGroup) > 0 {
+		venues := make([]interface{}, 0, len(venuesInGroup))
+		for v := range venuesInGroup {
+			venues = append(venues, v)
+		}
+		placeholders := ""
+		for i := range venues {
+			if i > 0 {
+				placeholders += ","
+			}
+			placeholders += "?"
+		}
+		query += " AND rm.venue IN (" + placeholders + ")"
+		args = append(args, venues...)
+	}
+
+	query += " ORDER BY rm.ingested_at DESC LIMIT 500"
+
+	rows, err := s.db.Conn().Query(query, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "query failed: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	// Aggregate by timestamp
+	historyMap := make(map[string]map[string]map[string]interface{})
+
+	for rows.Next() {
+		var timestamp time.Time
+		var venue string
+		var payload string
+
+		if err := rows.Scan(&timestamp, &venue, &payload); err != nil {
+			continue
+		}
+
+		tsKey := timestamp.Format(time.RFC3339)
+		if historyMap[tsKey] == nil {
+			historyMap[tsKey] = make(map[string]map[string]interface{})
+		}
+
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(payload), &raw); err != nil {
+			continue
+		}
+
+		// Extract relevant pricing fields
+		extracted := map[string]interface{}{
+			"raw": raw,
+		}
+		historyMap[tsKey][venue] = extracted
+	}
+
+	// Convert to sorted list
+	var history []priceSnapshot
+	for ts := range historyMap {
+		history = append(history, priceSnapshot{
+			Timestamp: ts,
+			Members:   historyMap[ts],
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"group_id": groupID,
+		"history":  history,
+		"count":    len(history),
+	})
 }
 
 // GET /health
@@ -326,6 +600,25 @@ func (s *Server) loadMembers(ids []string) ([]models.CanonicalMarket, error) {
 		members = append(members, cm)
 	}
 	return members, nil
+}
+
+func (s *Server) persistDecision(decision models.RoutingDecision) error {
+	orderReqJSON, _ := json.Marshal(decision.OrderRequest)
+	rejectedJSON, _ := json.Marshal(decision.RejectedAlternatives)
+	scoringJSON, _ := json.Marshal(decision.ScoringBreakdown)
+
+	_, err := s.db.Conn().Exec(`
+		INSERT INTO routing_decisions
+			(decision_id, group_id, order_request, selected_venue, selected_market_id,
+			 rejected_alternatives, scoring_breakdown, routing_rationale, simulated_only, cache_mode)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		decision.DecisionID, decision.EquivalenceGroup.GroupID, string(orderReqJSON),
+		string(decision.SelectedVenue), decision.SelectedMarket.ID,
+		string(rejectedJSON), string(scoringJSON), decision.RoutingRationale,
+		1, decision.CacheMode)
+
+	return err
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
