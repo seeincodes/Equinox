@@ -22,3 +22,6 @@ equinox
 
 # Go
 vendor/
+
+# Git Worktrees
+.worktrees/
