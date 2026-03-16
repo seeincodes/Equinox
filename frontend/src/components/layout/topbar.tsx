@@ -17,10 +17,12 @@ export function Topbar() {
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-      <div />
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-600">{user?.email}</span>
+    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+      {/* Spacer for mobile hamburger */}
+      <div className="w-8 md:hidden" />
+      <div className="hidden md:block" />
+      <div className="flex items-center gap-2 sm:gap-3">
+        <span className="hidden text-sm text-gray-600 sm:inline">{user?.email}</span>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleBadgeColor[user?.role ?? 'viewer']}`}
         >
@@ -28,7 +30,7 @@ export function Topbar() {
         </span>
         <button
           onClick={handleLogout}
-          className="rounded-md px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 sm:px-3"
         >
           Logout
         </button>

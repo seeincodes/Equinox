@@ -73,8 +73,8 @@ export function SettingsPage() {
         </h2>
         <div className="space-y-4">
           {weightKeys.map((key) => (
-            <div key={key} className="flex items-center gap-3">
-              <label className="w-40 text-sm text-gray-600">
+            <div key={key} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+              <label className="text-sm text-gray-600 sm:w-40">
                 {key
                   .replace('weight_', '')
                   .replace(/_/g, ' ')
@@ -116,7 +116,7 @@ export function SettingsPage() {
         <h2 className="mb-4 text-sm font-medium text-gray-700">
           Confidence Thresholds (Display)
         </h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm text-gray-600">
               HIGH threshold
@@ -190,7 +190,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
           disabled={!canSave || updateConfig.isPending}

@@ -33,7 +33,7 @@ export function GroupCard({ group }: { group: EquivalenceGroup }) {
       </div>
 
       {group.members && group.members.length > 0 && (
-        <div className="mb-3 grid grid-cols-2 gap-3">
+        <div className="mb-3 grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 min-[400px]:gap-3">
           {group.members.map((m) => (
             <div
               key={m.id}

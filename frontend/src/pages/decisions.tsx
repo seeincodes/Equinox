@@ -54,8 +54,8 @@ export function DecisionsPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="w-full min-w-[600px] text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">

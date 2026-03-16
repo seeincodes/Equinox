@@ -34,7 +34,7 @@ export function RoutingPanel({ groupId }: Props) {
         <h3 className="mb-3 text-sm font-medium text-gray-700">
           Simulate Route
         </h3>
-        <div className="flex items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs text-gray-500">Side</label>
             <div className="mt-1 flex rounded-md border border-gray-300">

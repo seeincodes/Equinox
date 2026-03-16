@@ -31,7 +31,7 @@ export function DashboardPage() {
         </span>
       </div>
 
-      <div className="mb-5 flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-3">
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 sm:gap-4">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-gray-600">
             Min Confidence

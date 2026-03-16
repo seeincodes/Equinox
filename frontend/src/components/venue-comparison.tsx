@@ -16,7 +16,7 @@ export function VenueComparison({ members }: Props) {
   if (members.length < 2) return null
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <div className="grid grid-cols-3 border-b border-gray-200 px-4 py-2">
         <div className="text-xs font-medium text-gray-500">Dimension</div>
         {members.slice(0, 2).map((m) => (
