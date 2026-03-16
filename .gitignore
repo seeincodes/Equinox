@@ -9,6 +9,14 @@ backend/.env.*
 backend/vendor/
 backend/coverage.out
 
+# Root-level artifacts (leftover from pre-restructure)
+/equinox
+/*.db
+/*.db-wal
+/*.db-shm
+/coverage.out
+/.env
+
 # Frontend
 node_modules/
 frontend/dist/
