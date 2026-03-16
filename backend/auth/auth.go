@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	sessionDuration  = 24 * time.Hour
-	slidingThreshold = 12 * time.Hour
+	sessionDuration  = 24 * time.Hour // re-auth daily for real-money trading
+	slidingThreshold = 12 * time.Hour // extend if active in second half of session
 	CookieName       = "equinox_session"
 )
 
