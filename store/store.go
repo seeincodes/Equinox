@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -53,6 +54,10 @@ func (db *DB) migrate() error {
 		migrationEquivalenceGroups,
 		migrationEmbeddingCache,
 		migrationRoutingDecisions,
+		migrationUsers,
+		migrationSessions,
+		migrationConfig,
+		migrationCanonicalMarketSnapshots,
 	}
 
 	for i, m := range migrations {
@@ -61,7 +66,14 @@ func (db *DB) migrate() error {
 		}
 	}
 
-	slog.Debug("migrations applied", "count", len(migrations))
+	// ALTER TABLE migrations — may fail if column already exists, that's OK
+	if _, err := db.conn.Exec("ALTER TABLE routing_decisions ADD COLUMN user_id TEXT DEFAULT ''"); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column") {
+			return fmt.Errorf("migration add user_id: %w", err)
+		}
+	}
+
+	slog.Debug("migrations applied", "count", len(migrations)+1)
 	return nil
 }
 
@@ -151,4 +163,47 @@ CREATE TABLE IF NOT EXISTS routing_decisions (
 );
 CREATE INDEX IF NOT EXISTS idx_decisions_group ON routing_decisions(group_id);
 CREATE INDEX IF NOT EXISTS idx_decisions_created ON routing_decisions(created_at);
+`
+
+const migrationUsers = `
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('viewer', 'analyst', 'admin')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+const migrationSessions = `
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+`
+
+const migrationConfig = `
+CREATE TABLE IF NOT EXISTS config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_by TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+const migrationCanonicalMarketSnapshots = `
+CREATE TABLE IF NOT EXISTS canonical_market_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    market_id TEXT NOT NULL,
+    venue TEXT NOT NULL,
+    yes_price REAL,
+    no_price REAL,
+    spread REAL,
+    liquidity REAL,
+    snapshot_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_market ON canonical_market_snapshots(market_id);
+CREATE INDEX IF NOT EXISTS idx_snapshots_time ON canonical_market_snapshots(snapshot_at);
 `
