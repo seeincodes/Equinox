@@ -16,7 +16,12 @@ type DB struct {
 
 // New opens a SQLite database and runs migrations.
 func New(dbPath string) (*DB, error) {
-	conn, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_foreign_keys=ON")
+	dsn := dbPath + "?_journal_mode=WAL&_foreign_keys=ON"
+	if dbPath == ":memory:" {
+		// Use shared cache for in-memory DBs so all connections see the same data
+		dsn = "file::memory:?mode=memory&cache=shared&_journal_mode=WAL&_foreign_keys=ON"
+	}
+	conn, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
