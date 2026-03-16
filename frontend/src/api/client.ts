@@ -45,7 +45,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
-  logout: () => request<{ status: string }>('/auth/logout', { method: 'POST' }),
+  logout: () =>
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      .then(() => ({ status: 'ok' }))
+      .catch(() => ({ status: 'ok' })),
   me: () => request<User>('/auth/me'),
 
   // Markets

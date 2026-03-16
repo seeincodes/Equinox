@@ -1,5 +1,4 @@
 import { useAuth } from '../../hooks/use-auth'
-import { useNavigate } from 'react-router'
 
 const roleBadgeColor: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-800',
@@ -9,11 +8,14 @@ const roleBadgeColor: Record<string, string> = {
 
 export function Topbar() {
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
 
   const handleLogout = async () => {
-    await logout()
-    navigate('/login')
+    try {
+      await logout()
+    } catch {
+      // Ignore errors — session may already be invalid
+    }
+    window.location.href = '/login'
   }
 
   return (
