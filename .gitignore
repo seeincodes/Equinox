@@ -27,3 +27,12 @@ vendor/
 .worktrees/
 
 docs/superpowers/
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Demo
+demo.sh
+DEMO_COMMANDS.md
