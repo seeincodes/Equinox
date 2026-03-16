@@ -1,15 +1,18 @@
-# Binary
-equinox
+# Backend
+backend/equinox
+backend/*.db
+backend/*.db-wal
+backend/*.db-shm
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/vendor/
+backend/coverage.out
 
-# Database
-*.db
-*.db-wal
-*.db-shm
-
-# Environment
-.env
-.env.*
-!.env.example
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
 
 # OS
 .DS_Store
@@ -20,18 +23,11 @@ equinox
 *.swp
 *.swo
 
-# Go
-vendor/
-
 # Git Worktrees
 .worktrees/
 
+# Superpowers
 docs/superpowers/
-
-# Frontend
-node_modules/
-frontend/dist/
-frontend/.vite/
 
 # Demo
 demo.sh
