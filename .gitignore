@@ -25,3 +25,5 @@ vendor/
 
 # Git Worktrees
 .worktrees/
+
+docs/superpowers/

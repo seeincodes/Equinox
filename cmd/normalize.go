@@ -50,6 +50,11 @@ func runNormalize(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("persist canonical markets: %w", err)
 	}
 
+	snapCount, snapErr := captureSnapshots(db, canonicals)
+	if snapErr != nil {
+		slog.Warn("snapshot capture failed", "error", snapErr)
+	}
+
 	staleCount, err := db.DetectStalePrices()
 	if err != nil {
 		slog.Warn("staleness detection failed", "error", err)
@@ -57,7 +62,7 @@ func runNormalize(cmd *cobra.Command, args []string) error {
 		slog.Warn("stale markets detected", "count", staleCount)
 	}
 
-	fmt.Printf("Normalized %d markets (%d errors, %d persisted, %d stale)\n", len(canonicals), len(errs), persisted, staleCount)
+	fmt.Printf("Normalized %d markets (%d errors, %d persisted, %d stale, %d snapshots)\n", len(canonicals), len(errs), persisted, staleCount, snapCount)
 	return nil
 }
 
@@ -158,4 +163,30 @@ func persistCanonicalMarkets(db *store.DB, markets []models.CanonicalMarket) (in
 	}
 
 	return persisted, nil
+}
+
+func captureSnapshots(db *store.DB, markets []models.CanonicalMarket) (int, error) {
+	tx, err := db.Conn().Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO canonical_market_snapshots (market_id, venue, yes_price, no_price, spread, liquidity)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	count := 0
+	for _, m := range markets {
+		if _, err := stmt.Exec(m.ID, string(m.Venue), m.YesPrice, m.NoPrice, m.Spread, m.Liquidity); err != nil {
+			continue
+		}
+		count++
+	}
+	return count, tx.Commit()
 }
