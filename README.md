@@ -1,113 +1,110 @@
-# Equinox
+# Project Equinox
 
-Cross-venue prediction market aggregation and routing infrastructure prototype.
+Cross-venue prediction market aggregation and intelligent order routing.
 
-Connects to Kalshi and Polymarket, normalizes markets into a canonical model, detects equivalent markets across venues, and simulates routing decisions with logged rationale.
+Equinox connects to Kalshi and Polymarket, normalizes markets into a canonical model, detects equivalent markets across venues using hybrid rule-based + embedding similarity, and simulates routing decisions with full scoring breakdowns.
+
+## Repository Structure
+
+```
+backend/     Go API server + CLI
+frontend/    React dashboard (Vite + TypeScript + Tailwind)
+docs/        PRD, architecture docs, calculations reference
+```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Go 1.22+ with CGO enabled
-- SQLite3 (bundled via `mattn/go-sqlite3`)
-- OpenAI API key (optional — equivalence detection falls back to rule-based matching without it)
+- Go 1.22+ (with CGO enabled for SQLite)
+- Node.js 20.19+
+- OpenAI API key (for embedding-based matching)
 
-### Setup
-
-```bash
-git clone <repo-url> && cd equinox
-cp .env.example .env   # edit with your API keys
-go mod download
-CGO_ENABLED=1 go build -o equinox .
-```
-
-### Configure
-
-Edit `.env` with your credentials:
-
-```
-KALSHI_BASE_URL=https://demo-api.kalshi.co/trade-api/v2
-KALSHI_API_KEY=your-key-here
-POLYMARKET_GAMMA_URL=https://gamma-api.polymarket.com
-POLYMARKET_CLOB_URL=https://clob.polymarket.com
-OPENAI_API_KEY=sk-...
-SQLITE_DB_PATH=./equinox.db
-```
-
-### Run
+### Backend
 
 ```bash
-# 1. Ingest raw market data from both venues
+cd backend
+cp .env.example .env   # Add your API keys
+go build -o equinox .
+
+# Seed a dashboard user
+./equinox user add --email admin@example.com --password yourpassword --role admin
+
+# Ingest, normalize, and match markets
 ./equinox ingest
-
-# 2. Normalize raw data into canonical form
 ./equinox normalize
+./equinox match
 
-# 3. Detect equivalent markets across venues
-./equinox match --dry-run    # preview without persisting
-./equinox match              # persist to database
-
-# 4. Simulate a routing decision
-./equinox route --market "KALSHI:KXBTC-100K" --side YES --size 100
-
-# 5. Check system health
-./equinox status
-
-# 6. Explain an equivalence group
-./equinox explain --group <group_id>
-
-# 7. Start the REST API server
+# Start the API server
 ./equinox serve --addr :8080
 ```
 
-### REST API Endpoints
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev    # Opens on http://localhost:5173
+```
+
+The Vite dev server proxies `/api/*` requests to the Go backend at `:8080`.
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `equinox ingest` | Fetch markets from Kalshi and Polymarket |
+| `equinox normalize` | Transform raw data into canonical markets |
+| `equinox match` | Detect equivalent markets across venues |
+| `equinox route --market <id> --side YES --size 100` | Simulate a routing decision |
+| `equinox serve` | Start the REST API server |
+| `equinox status` | Health check all venue adapters |
+| `equinox user add --email --password --role` | Add a dashboard user |
+| `equinox user list` | List all dashboard users |
+
+### Dashboard
+
+The web dashboard provides:
+
+- **Dashboard** — Live equivalence group cards with venue prices, confidence badges, and flags
+- **Group Detail** — Side-by-side venue comparison, price history chart, routing simulation
+- **Decisions** — Paginated audit log of all routing decisions with scoring breakdowns
+- **Settings** (admin) — Configurable routing weights and confidence thresholds
+
+### Roles
+
+| Role | Browse | Route | Configure |
+|------|--------|-------|-----------|
+| Viewer | Yes | No | No |
+| Analyst | Yes | Yes | No |
+| Admin | Yes | Yes | Yes |
+
+## API Endpoints
+
+All endpoints are prefixed with `/api/`. Authentication required except `/api/health` and `/api/auth/login`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/markets?venue=&status=` | List canonical markets, with optional venue/status filters |
-| `GET` | `/groups?min_confidence=` | List equivalence groups, filtered by minimum confidence |
-| `POST` | `/route` | Route an order (body: `{"market_id":"...","side":"YES","size":100}`) |
-| `GET` | `/health` | System health: venue connectivity, database counts |
-
-### Test
-
-```bash
-CGO_ENABLED=1 go test ./... -count=1
-```
+| POST | `/api/auth/login` | Login with email/password |
+| POST | `/api/auth/logout` | Destroy session |
+| GET | `/api/auth/me` | Current user info |
+| GET | `/api/markets` | List canonical markets |
+| GET | `/api/groups` | List equivalence groups with embedded members |
+| GET | `/api/groups/{id}/history` | Price history time-series |
+| POST | `/api/route` | Simulate routing decision |
+| POST | `/api/route/batch` | Batch routing simulation |
+| GET | `/api/decisions` | Paginated audit trail |
+| GET | `/api/config` | Current config (admin) |
+| PUT | `/api/config` | Update config (admin) |
+| GET | `/api/health` | System health check |
 
 ## Architecture
 
-Four strictly isolated layers. The routing engine has zero imports from `adapters/`.
-
 ```
-L1  Venue Adapters      → raw venue JSON + typed AdapterErrors
-L2  Normalization       → []CanonicalMarket
-L3  Equivalence         → []EquivalenceGroup
-L4  Routing Engine      → RoutingDecision
+L1: Venue Adapters     → Fetch raw data from Kalshi + Polymarket APIs
+L2: Normalization      → Transform to canonical market model
+L3: Equivalence        → Detect matching markets (Jaccard + embeddings)
+L4: Routing Engine     → Score venues and select optimal route
 ```
 
-### Directory Structure
-
-```
-equinox/
-├── api/              # Optional REST API server
-├── cmd/              # Cobra CLI commands (ingest, normalize, match, route, status, explain, serve)
-├── adapters/         # L1 — VenueAdapter interface, retry, circuit breaker
-│   ├── kalshi/       # Kalshi exchange adapter
-│   └── polymarket/   # Polymarket adapter (Gamma + CLOB APIs)
-├── normalizer/       # L2 — venue → CanonicalMarket transformers
-├── equivalence/      # L3 — rule-based + embedding similarity matching
-├── routing/          # L4 — scoring model, venue ranking, decision output
-├── models/           # Shared canonical structs and enums
-├── store/            # SQLite migrations, queries, staleness detection
-├── config/           # Viper config from .env
-└── main.go
-```
-
-## Key Design Decisions
-
-- **SimulatedOnly is type-enforced** — the `simulatedOnlyTrue` type always marshals to `true`
-- **Retry with circuit breaker** — exponential backoff (3 attempts, ±20% jitter), circuit opens after 5 consecutive failures
-- **Graceful degradation** — if OpenAI is unavailable, equivalence detection falls back to Stage 1 rule-based matching with `LOW_CONFIDENCE` + `EMBEDDING_UNAVAILABLE` flags
-- **Settlement divergence flagging** — cross-venue groups with different settlement mechanisms get `SETTLEMENT_DIVERGENCE` warnings
-- **USDC/USD assumed 1:1** (Assumption A1) — flagged in every routing decision involving Polymarket
+See [docs/PRD.md](docs/PRD.md) for the full product requirements document and [docs/CALCULATIONS.md](docs/CALCULATIONS.md) for scoring formulas.

@@ -22,7 +22,7 @@ func TestNew_CreatesAndMigrates(t *testing.T) {
 	}
 
 	// Verify all tables exist
-	tables := []string{"raw_markets", "canonical_markets", "equivalence_groups", "embedding_cache", "routing_decisions"}
+	tables := []string{"raw_markets", "canonical_markets", "equivalence_groups", "embedding_cache", "routing_decisions", "users", "sessions", "config", "canonical_market_snapshots"}
 	for _, table := range tables {
 		var name string
 		err := db.Conn().QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&name)
